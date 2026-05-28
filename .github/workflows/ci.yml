@@ -35,16 +35,14 @@ jobs:
                       numpy==1.26.4 matplotlib==3.9.2 seaborn==0.13.2
 
       - name: Run MLflow Project
-        env:
-          MLFLOW_TRACKING_URI: "file:./mlruns"
         run: |
-          cd MLProject
-          python modelling.py \
-            --data_path WA_Fn-UseC_-Telco-Customer-Churn_preprocessing \
-            --n_estimators ${{ github.event.inputs.n_estimators || '200' }} \
-            --max_depth ${{ github.event.inputs.max_depth || '10' }} \
-            --min_samples_split 5 \
-            --min_samples_leaf 2
+          export MLFLOW_TRACKING_URI="file:./mlruns"
+          unset MLFLOW_RUN_ID
+          mlflow run MLProject/ \
+            -P n_estimators=${{ github.event.inputs.n_estimators || '200' }} \
+            -P max_depth=${{ github.event.inputs.max_depth || '10' }} \
+            --env-manager=local \
+            --experiment-name="Telco-Churn-CI-Pipeline"
 
       - name: Upload Artifacts to GitHub
         uses: actions/upload-artifact@v4
