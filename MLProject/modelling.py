@@ -1,15 +1,17 @@
 """
-modelling.py — Versi MLflow Project untuk CI Pipeline
+modelling.py — MLflow Project version (K3)
 Dipanggil via: mlflow run MLProject/ -P n_estimators=200
 """
+
 import pandas as pd
-import numpy as np
 import argparse, os, pickle, warnings
 warnings.filterwarnings('ignore')
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import (accuracy_score, f1_score, precision_score,
-                              recall_score, roc_auc_score, log_loss)
+from sklearn.metrics import (
+    accuracy_score, f1_score, precision_score,
+    recall_score, roc_auc_score, log_loss
+)
 import mlflow
 import mlflow.sklearn
 
@@ -36,50 +38,47 @@ def load_data(data_path):
 
 def main():
     args = parse_args()
-    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "file:./mlruns"))
-    mlflow.set_experiment("Telco-Churn-CI-Pipeline")
+
+    # Gunakan tracking URI dari environment (diset otomatis oleh mlflow run)
+    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "file:./mlruns")
+    mlflow.set_tracking_uri(tracking_uri)
 
     X_train, X_test, y_train, y_test = load_data(args.data_path)
 
-    with mlflow.start_run(run_name=f"RF-n{args.n_estimators}-d{args.max_depth}"):
-        model = RandomForestClassifier(
-            n_estimators=args.n_estimators,
-            max_depth=args.max_depth,
-            min_samples_split=args.min_samples_split,
-            min_samples_leaf=args.min_samples_leaf,
-            random_state=42, n_jobs=-1
-        )
-        model.fit(X_train, y_train)
+    # Aktifkan autolog agar mlflow run mencatat run ID dengan benar
+    mlflow.sklearn.autolog(log_model_signatures=True)
 
-        y_pred  = model.predict(X_test)
-        y_proba = model.predict_proba(X_test)[:, 1]
+    model = RandomForestClassifier(
+        n_estimators=args.n_estimators,
+        max_depth=args.max_depth,
+        min_samples_split=args.min_samples_split,
+        min_samples_leaf=args.min_samples_leaf,
+        random_state=42,
+        n_jobs=-1
+    )
+    model.fit(X_train, y_train)
 
-        mlflow.log_params({
-            'n_estimators'     : args.n_estimators,
-            'max_depth'        : args.max_depth,
-            'min_samples_split': args.min_samples_split,
-            'min_samples_leaf' : args.min_samples_leaf,
-        })
+    y_pred  = model.predict(X_test)
+    y_proba = model.predict_proba(X_test)[:, 1]
 
-        metrics = {
-            'training_accuracy': accuracy_score(y_train, model.predict(X_train)),
-            'test_accuracy'    : accuracy_score(y_test, y_pred),
-            'f1_score'         : f1_score(y_test, y_pred),
-            'precision'        : precision_score(y_test, y_pred),
-            'recall'           : recall_score(y_test, y_pred),
-            'roc_auc'          : roc_auc_score(y_test, y_proba),
-            'log_loss'         : log_loss(y_test, y_proba),
-        }
-        mlflow.log_metrics(metrics)
-        mlflow.sklearn.log_model(model, "model")
+    metrics = {
+        'training_accuracy': accuracy_score(y_train, model.predict(X_train)),
+        'test_accuracy'    : accuracy_score(y_test, y_pred),
+        'f1_score'         : f1_score(y_test, y_pred),
+        'precision'        : precision_score(y_test, y_pred),
+        'recall'           : recall_score(y_test, y_pred),
+        'roc_auc'          : roc_auc_score(y_test, y_proba),
+        'log_loss'         : log_loss(y_test, y_proba),
+    }
 
-        os.makedirs("artifacts", exist_ok=True)
-        with open("artifacts/model.pkl", "wb") as f:
-            pickle.dump(model, f)
+    # Simpan model lokal untuk artifact upload
+    os.makedirs("artifacts", exist_ok=True)
+    with open("artifacts/model.pkl", "wb") as f:
+        pickle.dump(model, f)
 
-        print("\n=== HASIL CI PIPELINE ===")
-        for k, v in metrics.items():
-            print(f"  {k:<25}: {v:.4f}")
+    print("\n=== HASIL CI PIPELINE ===")
+    for k, v in metrics.items():
+        print(f"  {k:<25}: {v:.4f}")
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ name: CI - MLflow Training Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'MLProject/**'
   workflow_dispatch:
@@ -35,13 +35,12 @@ jobs:
                       numpy==1.26.4 matplotlib==3.9.2 seaborn==0.13.2
 
       - name: Run MLflow Project
-        env:
-          MLFLOW_TRACKING_URI: "file:./mlruns"
         run: |
           mlflow run MLProject/ \
             -P n_estimators=${{ github.event.inputs.n_estimators || '200' }} \
             -P max_depth=${{ github.event.inputs.max_depth || '10' }} \
-            --env-manager=local
+            --env-manager=local \
+            --experiment-name="Telco-Churn-CI-Pipeline"
 
       - name: Upload Artifacts to GitHub
         uses: actions/upload-artifact@v4
